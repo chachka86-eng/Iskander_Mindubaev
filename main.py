@@ -1,9 +1,7 @@
-import json
-import os
-from tkinter import *
-from tkinter import messagebox, ttk
-
-DATA_FILE = "books.json"
+import tkinter as tk
+from tkinter import ttk, messagebox, LabelFrame, Button, Label, Entry, Frame, END
+from storage import save_books, load_books
+from filters import filter_by_genre, filter_by_pages
 
 class BookTracker:
     def __init__(self, root):
@@ -11,10 +9,13 @@ class BookTracker:
         self.root.title("Book Tracker - Трекер прочитанных книг")
         self.root.geometry("900x500")
 
-        self.books = []
-        self.load_data()
+        self.books = load_books()
+        self.create_widgets()
+        self.update_display()
+        self.update_genre_list()
 
-        input_frame = LabelFrame(root, text="Добавить книгу", padx=10, pady=10)
+    def create_widgets(self):
+        input_frame = LabelFrame(self.root, text="Добавить книгу", padx=10, pady=10)
         input_frame.pack(pady=10, fill="x", padx=10)
 
         Label(input_frame, text="Название книги:").grid(row=0, column=0, sticky="w")
@@ -36,7 +37,7 @@ class BookTracker:
         add_btn = Button(input_frame, text="Добавить книгу", command=self.add_book, bg="lightgreen")
         add_btn.grid(row=0, column=8, padx=10)
 
-        filter_frame = LabelFrame(root, text="Фильтрация", padx=10, pady=5)
+        filter_frame = LabelFrame(self.root, text="Фильтрация", padx=10, pady=5)
         filter_frame.pack(pady=5, fill="x", padx=10)
 
         Label(filter_frame, text="Фильтр по жанру:").grid(row=0, column=0, sticky="w")
@@ -56,20 +57,17 @@ class BookTracker:
         Button(filter_frame, text="Сбросить фильтры", command=self.reset_filters).grid(row=0, column=5, padx=10)
 
         columns = ("Название", "Автор", "Жанр", "Страницы")
-        self.tree = ttk.Treeview(root, columns=columns, show="headings")
+        self.tree = ttk.Treeview(self.root, columns=columns, show="headings")
         for col in columns:
             self.tree.heading(col, text=col)
             self.tree.column(col, width=150)
         self.tree.pack(fill="both", expand=True, padx=10, pady=5)
 
-        btn_frame = Frame(root)
+        btn_frame = Frame(self.root)
         btn_frame.pack(pady=5)
-        Button(btn_frame, text="Сохранить в JSON", command=self.save_data).pack(side=LEFT, padx=5)
-        Button(btn_frame, text="Загрузить из JSON", command=self.load_data).pack(side=LEFT, padx=5)
-        Button(btn_frame, text="Удалить выбранную", command=self.delete_book, bg="salmon").pack(side=LEFT, padx=5)
-
-        self.update_display()
-        self.update_genre_list()
+        Button(btn_frame, text="Сохранить", command=self.save_data).pack(side=tk.LEFT, padx=5)
+        Button(btn_frame, text="Загрузить", command=self.load_data).pack(side=tk.LEFT, padx=5)
+        Button(btn_frame, text="Удалить", command=self.delete_book, bg="salmon").pack(side=tk.LEFT, padx=5)
 
     def add_book(self):
         title = self.title_entry.get().strip()
@@ -97,7 +95,7 @@ class BookTracker:
         self.clear_entries()
         self.update_display()
         self.update_genre_list()
-        self.save_data()
+        save_books(self.books)
 
     def delete_book(self):
         selected = self.tree.selection()
@@ -112,7 +110,7 @@ class BookTracker:
                 break
         self.update_display()
         self.update_genre_list()
-        self.save_data()
+        save_books(self.books)
 
     def apply_filters(self, event=None):
         self.update_display()
@@ -138,11 +136,11 @@ class BookTracker:
 
         filtered = self.books[:]
         if genre_filter:
-            filtered = [b for b in filtered if genre_filter in b["genre"].lower()]
+            filtered = filter_by_genre(filtered, genre_filter)
         if pages_filter:
             try:
                 pages_limit = int(pages_filter)
-                filtered = [b for b in filtered if b["pages"] > pages_limit]
+                filtered = filter_by_pages(filtered, pages_limit)
             except ValueError:
                 pass
         return filtered
@@ -161,25 +159,11 @@ class BookTracker:
         self.pages_entry.delete(0, END)
 
     def save_data(self):
-        try:
-            with open(DATA_FILE, "w", encoding="utf-8") as f:
-                json.dump(self.books, f, ensure_ascii=False, indent=4)
-            messagebox.showinfo("Успех", f"Данные сохранены в {DATA_FILE}")
-        except Exception as e:
-            messagebox.showerror("Ошибка", f"Не удалось сохранить: {e}")
+        save_books(self.books)
+        messagebox.showinfo("Успех", "Данные сохранены")
 
     def load_data(self):
-        if not os.path.exists(DATA_FILE):
-            return
-        try:
-            with open(DATA_FILE, "r", encoding="utf-8") as f:
-                self.books = json.load(f)
-            self.update_display()
-            self.update_genre_list()
-        except Exception as e:
-            messagebox.showerror("Ошибка", f"Не удалось загрузить: {e}")
-
-if __name__ == "__main__":
-    root = Tk()
-    app = BookTracker(root)
-    root.mainloop()
+        self.books = load_books()
+        self.update_display()
+        self.update_genre_list()
+        messagebox.showinfo("Успех", "Данные загружены")
